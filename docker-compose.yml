@@ -8,6 +8,15 @@ services:
       - '443:443'
       # Map host port 80 to container port 80 (for HTTP->HTTPS redirect)
       - '80:80'
+    environment:
+      # Database configuration
+      DB_HOST: mariadb
+      DB_USERNAME: root
+      DB_PASSWORD: jK657QqAa0ns
+      DB_NAME: pet_grooming
+      # Application configuration
+      APP_CURRENCY: INR
+      APP_TIMEZONE: Asia/Kolkata
     volumes:
       # Mount the custom VHost/SSL configuration to overwrite the default
       # Assumes Apache configuration path.
