@@ -1,40 +1,84 @@
 <?php
-   error_reporting(0);
-   require_once('../assets/constants/config.php');
-   require_once('../assets/constants/check-login.php');
-   require_once('../assets/constants/fetch-my-info.php');
-   
-   ?>
+// Security headers
+header('X-Content-Type-Options: nosniff');
+header('X-Frame-Options: DENY');
+header('X-XSS-Protection: 1; mode=block');
+
+// Enable proper error reporting for development (disable in production)
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
+
+require_once('../assets/constants/config.php');
+require_once('../assets/constants/check-login.php');
+require_once('../assets/constants/fetch-my-info.php');
+
+// Input validation for POST parameter
+if (!isset($_POST['id']) || empty($_POST['id'])) {
+    die('Invalid request: Missing ID parameter');
+}
+
+if (!filter_var($_POST['id'], FILTER_VALIDATE_INT)) {
+    die('Invalid request: ID must be a valid integer');
+}
+
+$invoice_id = (int)$_POST['id'];
+?>
+
 <?php
-   $stmt = $conn->prepare("SELECT * FROM tbl_admin WHERE id='" . $_SESSION['id'] . "'");
-   $stmt->execute();
-   $result = $stmt->fetch(PDO::FETCH_ASSOC);
-   
-   ?>
+try {
+    // Fix SQL injection - use proper prepared statement with parameter binding
+    $stmt = $conn->prepare("SELECT * FROM tbl_admin WHERE id = ?");
+    $stmt->execute([$_SESSION['id']]);
+    $result = $stmt->fetch(PDO::FETCH_ASSOC);
+    
+    if (!$result) {
+        throw new Exception('Admin profile not found');
+    }
+} catch (PDOException $e) {
+    error_log('Database error in print_inv.php admin query: ' . $e->getMessage());
+    die('Error: Unable to load admin data');
+}
+?>
+
 <?php
-   $sql = "SELECT * FROM tbl_invoice where  id='" . $_POST['id'] . "'";
-   
-   
-   $statement = $conn->prepare($sql);
-   $statement->execute();
-   $invoice = $statement->fetch(PDO::FETCH_ASSOC);
-   
-   // print_r($invoice);
-   // exit;
-   
-   $sql = "SELECT * FROM tbl_manage_website";
-   $statement = $conn->prepare($sql);
-   $statement->execute();
-   $web = $statement->fetch(PDO::FETCH_ASSOC);
-   
-    $sqlq = "SELECT * FROM tbl_customer where cust_id = ? ";
-   
-   
-                                       $stat = $conn->prepare($sqlq);
-                                       $stat->execute([$invoice['customer_id']]);
-   
-   
-                                    $cust = $stat->fetch();
+try {
+    // Fix SQL injection - use proper prepared statement with parameter binding
+    $sql = "SELECT * FROM tbl_invoice WHERE id = ?";
+    $statement = $conn->prepare($sql);
+    $statement->execute([$invoice_id]);
+    $invoice = $statement->fetch(PDO::FETCH_ASSOC);
+    
+    if (!$invoice) {
+        throw new Exception('Invoice not found');
+    }
+
+    $sql = "SELECT * FROM tbl_manage_website";
+    $statement = $conn->prepare($sql);
+    $statement->execute();
+    $web = $statement->fetch(PDO::FETCH_ASSOC);
+
+    // Validate customer_id exists and is numeric
+    if (empty($invoice['customer_id']) || !is_numeric($invoice['customer_id'])) {
+        throw new Exception('Invalid customer ID in invoice');
+    }
+
+    $sqlq = "SELECT * FROM tbl_customer WHERE cust_id = ?";
+    $stat = $conn->prepare($sqlq);
+    $stat->execute([$invoice['customer_id']]);
+    $cust = $stat->fetch();
+    
+    if (!$cust) {
+        throw new Exception('Customer not found');
+    }
+    
+} catch (PDOException $e) {
+    error_log('Database error in print_inv.php: ' . $e->getMessage());
+    die('Error: Unable to load invoice data');
+} catch (Exception $e) {
+    error_log('Error in print_inv.php: ' . $e->getMessage());
+    die('Error: ' . htmlspecialchars($e->getMessage(), ENT_QUOTES, 'UTF-8'));
+}
+?>
    
    
    function number_format1($number, $decimal = 2) {
@@ -123,16 +167,16 @@
          <tr>
             <div></div>
             <td rowspan="2" colspan="3">
-               <h4 style="margin: 0px"><?= $result['fname']; ?>&nbsp;<?= $result['lname']; ?></h4>
-               <?= $result['address'] ?><br>
-               <strong>GSTIN :</strong> <?= $result['gstin']; ?>6<br>
-               <strong>Mobile :</strong> <?= $result['contact'] ?><br>
+               <h4 style="margin: 0px"><?= htmlspecialchars($result['fname'], ENT_QUOTES, 'UTF-8'); ?>&nbsp;<?= htmlspecialchars($result['lname'], ENT_QUOTES, 'UTF-8'); ?></h4>
+               <?= htmlspecialchars($result['address'], ENT_QUOTES, 'UTF-8'); ?><br>
+               <strong>GSTIN :</strong> <?= htmlspecialchars($result['gstin'], ENT_QUOTES, 'UTF-8'); ?><br>
+               <strong>Mobile :</strong> <?= htmlspecialchars($result['contact'], ENT_QUOTES, 'UTF-8'); ?><br>
             </td>
             <td colspan="4">
                <div style="display: flex;justify-content: space-between;">
-                  <p><strong>Invoice No</strong><br>#<?= $invoice['inv_no']; ?></p>
-                  <p><strong>Invoice Date</strong><br><?= date("d-m-Y", strtotime($invoice['build_date'])); ?></p>
-                  <p><strong>Due Date</strong><br><?= date("d-m-Y", strtotime($invoice['due_date'])); ?></p>
+                  <p><strong>Invoice No</strong><br>#<?= htmlspecialchars($invoice['inv_no'], ENT_QUOTES, 'UTF-8'); ?></p>
+                  <p><strong>Invoice Date</strong><br><?= htmlspecialchars(date("d-m-Y", strtotime($invoice['build_date'])), ENT_QUOTES, 'UTF-8'); ?></p>
+                  <p><strong>Due Date</strong><br><?= htmlspecialchars(date("d-m-Y", strtotime($invoice['due_date'])), ENT_QUOTES, 'UTF-8'); ?></p>
                </div>
             </td>
          </tr>
@@ -147,23 +191,23 @@
          <tr>
             <td colspan="3">
                BILLTO<br>
-               <strong><?= $cust['cust_name']; ?></strong><br>
-               Mobile: <?= $cust['cust_mob']; ?><br>
-               Email: <?= $cust['cust_email']; ?><br>
+               <strong><?= htmlspecialchars($cust['cust_name'], ENT_QUOTES, 'UTF-8'); ?></strong><br>
+               Mobile: <?= htmlspecialchars($cust['cust_mob'], ENT_QUOTES, 'UTF-8'); ?><br>
+               Email: <?= htmlspecialchars($cust['cust_email'], ENT_QUOTES, 'UTF-8'); ?><br>
             </td>
             <td colspan="4">
-               <strong>SHIP TO <br><?= $cust['cust_name']; ?></strong>
+               <strong>SHIP TO <br><?= htmlspecialchars($cust['cust_name'], ENT_QUOTES, 'UTF-8'); ?></strong>
             </td>
          </tr>
          <?php
-            $sql2 = "SELECT * FROM tbl_quot_inv_items where inv_id='" . $_POST['id'] . "'";
-            
-            
+         try {
+            // Fix SQL injection - use proper prepared statement with parameter binding
+            $sql2 = "SELECT * FROM tbl_quot_inv_items WHERE inv_id = ?";
             $statement2 = $conn->prepare($sql2);
-            $statement2->execute();
+            $statement2->execute([$invoice_id]);
             $res2 = $statement2->fetchAll();
-            if(count($res2)>0){
             
+            if(count($res2) > 0){
             ?>
          <tr class="th">
             <th>S.NO</th>
@@ -175,46 +219,57 @@
             <th>AMOUNT</th>
          </tr>
          <?php
-            $fstot=0;
-            $ftax=0;
-            $fqty=0;
-                                                     $cg1=0;
-                                                    $sg1=0;
-                                                    $ig1=0;
-                                                   
-                                                    foreach($res2 as $row2){
+            $fstot = 0;
+            $ftax = 0;
+            $fqty = 0;
+            $no = 0; // Initialize counter
             
-                                                        $sql1 = "SELECT * FROM tbl_product where id='" . $row2['product_id'] . "'";
-            
-            
-                                                        $statement1 = $conn->prepare($sql1);
-                                                        $statement1->execute();
-                                                        $row1 = $statement1->fetch(PDO::FETCH_ASSOC);
-            
-            
-                                                        $stmt3 = $conn->prepare("SELECT * FROM tbl_unit_grp where id='" . $row1['unit'] . "' AND delete_status = '0'");
-                                                        $stmt3->execute();
-                                                        $key3 = $stmt3->fetch();
-            
-                                                        $no += 1;
-                                                        
-                                                        $stot=$row2['quantity']*$row1['unit_price'];
-                                                        $fstot+=$stot;
-                                                        $fqty+=$row2['quantity'];
-                                                    ?>    
+            foreach($res2 as $row2){
+                try {
+                    // Validate product_id is numeric
+                    if (!is_numeric($row2['product_id'])) {
+                        continue; // Skip invalid product IDs
+                    }
+                    
+                    // Fix SQL injection - use proper prepared statement with parameter binding
+                    $sql1 = "SELECT * FROM tbl_product WHERE id = ?";
+                    $statement1 = $conn->prepare($sql1);
+                    $statement1->execute([$row2['product_id']]);
+                    $row1 = $statement1->fetch(PDO::FETCH_ASSOC);
+                    
+                    if (!$row1) {
+                        continue; // Skip if product not found
+                    }
+                    
+                    // Validate unit ID is numeric before using it
+                    if (is_numeric($row1['unit'])) {
+                        $stmt3 = $conn->prepare("SELECT * FROM tbl_unit_grp WHERE id = ? AND delete_status = '0'");
+                        $stmt3->execute([$row1['unit']]);
+                        $key3 = $stmt3->fetch();
+                    }
+                    
+                    $no += 1;
+                    
+                    $stot = $row2['quantity'] * $row1['unit_price'];
+                    $fstot += $stot;
+                    $fqty += $row2['quantity'];
+                    ?>    
          <tr class="border-bottom">
-            <td><?= $no ?></td>
+            <td><?= htmlspecialchars($no, ENT_QUOTES, 'UTF-8'); ?></td>
             <td>
-               <strong><?= $row1['name'] ?></strong><br>
-               <!--IME/Serial No: LG73624780LED1623453-->
+               <strong><?= htmlspecialchars($row1['name'], ENT_QUOTES, 'UTF-8'); ?></strong><br>
             </td>
-            <td><?= $row1['hsn'] ?></td>
-            <td><?php if($row1['exp']=='0'){
-               echo date("d-m-Y", strtotime($row1['exp_date']));
-               } else { echo 'No Expiry'; }?></td>
-            <td><?= $row2['quantity'] ?>PCS</td>
-            <td> <?php echo $web['currency_symbol'] . " " . number_format1($row1['unit_price'], 2); ?></td>
-            <td> <?php echo $web['currency_symbol'] . " " . number_format1(($row1['unit_price']*$row2['quantity']), 2); ?></td>
+            <td><?= htmlspecialchars($row1['hsn'], ENT_QUOTES, 'UTF-8'); ?></td>
+            <td><?php 
+                if($row1['exp']=='0'){
+                    echo htmlspecialchars(date("d-m-Y", strtotime($row1['exp_date'])), ENT_QUOTES, 'UTF-8');
+                } else { 
+                    echo 'No Expiry'; 
+                }
+            ?></td>
+            <td><?= htmlspecialchars($row2['quantity'], ENT_QUOTES, 'UTF-8'); ?>PCS</td>
+            <td><?= htmlspecialchars($web['currency_symbol'] . " " . number_format($row1['unit_price'], 2), ENT_QUOTES, 'UTF-8'); ?></td>
+            <td><?= htmlspecialchars($web['currency_symbol'] . " " . number_format(($row1['unit_price']*$row2['quantity']), 2), ENT_QUOTES, 'UTF-8'); ?></td>
          </tr>
          <tr class="td">
             <td></td>
@@ -233,31 +288,50 @@
             <td></td>
             <td></td>
             <td></td>
-         </tr>
-         <?php $product=$row1['gst'];       
-            $productArray = explode(',', $product);
-            foreach($productArray as $pro_med){
-              $stax = $conn->prepare("SELECT * FROM tbl_tax where id='" . $pro_med . "' AND delete_status = '0'");
-                                                    $stax->execute();
-                                                    $tax = $stax->fetch();  
-                                                    
-                                                  $ftax+=$cgst_amt;
-                                                  ?>
-         <tr class="td">
-            <td></td>
-            <td><strong><?php echo  $cgstax=$tax['name']; ?>@<?php echo  $cgst=$tax['percentage']; ?>%</strong></td>
-            <td>-</td>
-            <td>-</td>
-            <td>-</td>
-            <td>-</td>
-            <td><?php echo $web['currency_symbol']; echo number_format1($cgst_amt=($row2['quantity']*$row1['unit_price']*$cgst)/100,2); ?></td>
          </tr>
          <?php 
+         if (!empty($row1['gst'])) {
+             $product = $row1['gst'];       
+             $productArray = explode(',', $product);
+             foreach($productArray as $pro_med){
+                 // Validate that pro_med is numeric before using it in query
+                 if (is_numeric(trim($pro_med))) {
+                     // Fix SQL injection - use proper prepared statement with parameter binding
+                     $stax = $conn->prepare("SELECT * FROM tbl_tax WHERE id = ? AND delete_status = '0'");
+                     $stax->execute([trim($pro_med)]);
+                     $tax = $stax->fetch();  
+                     
+                     if ($tax) {
+                         $cgst = $tax['percentage'];
+                         $cgst_amt = ($row2['quantity'] * $row1['unit_price'] * $cgst) / 100;
+                         $ftax += $cgst_amt;
+                         ?>
+         <tr class="td">
+            <td></td>
+            <td><strong><?= htmlspecialchars($tax['name'], ENT_QUOTES, 'UTF-8'); ?>@<?= htmlspecialchars($cgst, ENT_QUOTES, 'UTF-8'); ?>%</strong></td>
+            <td>-</td>
+            <td>-</td>
+            <td>-</td>
+            <td>-</td>
+            <td><?= htmlspecialchars($web['currency_symbol'], ENT_QUOTES, 'UTF-8'); ?><?= htmlspecialchars(number_format($cgst_amt, 2), ENT_QUOTES, 'UTF-8'); ?></td>
+         </tr>
+         <?php 
+                     }
+                 }
+             }
+         }
+         ?>
+         <?php 
+                } catch (PDOException $e) {
+                    error_log('Database error in print_inv.php product loop: ' . $e->getMessage());
+                    continue; // Skip this product and continue with the next one
+                }
             }
-            
-            
-            ?>
-         <?php } ?>
+        } catch (PDOException $e) {
+            error_log('Database error in print_inv.php main query: ' . $e->getMessage());
+            echo '<tr><td colspan="7">Error loading invoice items</td></tr>';
+        }
+         ?>
          <tr class="td">
             <td></td>
             <td></td>
@@ -326,9 +400,9 @@
             <td class="bg"><strong>Total</strong></td>
             <td class="bg">-</td>
             <td class="bg">-</td>
-            <td class="bg"><?php echo number_format1($fqty,2); ?></td>
+            <td class="bg"><?= htmlspecialchars(number_format($fqty, 2), ENT_QUOTES, 'UTF-8'); ?></td>
             <td class="bg">-</td>
-            <td class="bg"><?php echo $web['currency_symbol']; echo number_format1(($fstot+$ftax),2);?></td>
+            <td class="bg"><?= htmlspecialchars($web['currency_symbol'], ENT_QUOTES, 'UTF-8'); ?><?= htmlspecialchars(number_format(($fstot + $ftax), 2), ENT_QUOTES, 'UTF-8'); ?></td>
          </tr>
       </table>
       <?php  
@@ -383,21 +457,32 @@
             <tr>
                <td><?= $row1['hsn'] ?></td>
                <td style="text-align:end"><?php echo $web['currency_symbol']; echo number_format1(($row2['quantity']*$row1['unit_price']),2); ?></td>
-               <?php      $product=$row1['gst']; 
-                  $productArray = explode(',', $product);
-                  foreach($productArray as $pro_med){
-                  $stax = $conn->prepare("SELECT * FROM tbl_tax where id='" . $pro_med . "' AND delete_status = '0'");
-                                           $stax->execute();
-                                           $tax = $stax->fetch(); 
-                                           $cgst=$tax['percentage'];
-                                           ?>
-               <td style="text-align:end"><?php echo $tax['percentage']; ?> %</td>
-               <td style="text-align:end"><?php echo $web['currency_symbol']; echo number_format1($cgst_amt=($row2['quantity']*$row1['unit_price']*$cgst/100),2); ?></td>
+               <?php      
+               if (!empty($row1['gst'])) {
+                   $product = $row1['gst']; 
+                   $productArray = explode(',', $product);
+                   foreach($productArray as $pro_med){
+                       // Validate that pro_med is numeric before using it in query
+                       if (is_numeric(trim($pro_med))) {
+                           // Fix SQL injection - use proper prepared statement with parameter binding
+                           $stax = $conn->prepare("SELECT * FROM tbl_tax WHERE id = ? AND delete_status = '0'");
+                           $stax->execute([trim($pro_med)]);
+                           $tax = $stax->fetch(); 
+                           
+                           if ($tax) {
+                               $cgst = $tax['percentage'];
+                               $cgst_amt = ($row2['quantity'] * $row1['unit_price'] * $cgst) / 100;
+                               ?>
+               <td style="text-align:end"><?= htmlspecialchars($tax['percentage'], ENT_QUOTES, 'UTF-8'); ?> %</td>
+               <td style="text-align:end"><?= htmlspecialchars($web['currency_symbol'], ENT_QUOTES, 'UTF-8'); ?><?= htmlspecialchars(number_format($cgst_amt, 2), ENT_QUOTES, 'UTF-8'); ?></td>
                <?php   
-                  $ftaxtot+=$cgst_amt;
-                  }
-                  ?>
-               <td style="text-align:end"><?php echo $web['currency_symbol']; echo number_format1($ftaxtot,2); ?></td>
+                               $ftaxtot += $cgst_amt;
+                           }
+                       }
+                   }
+               }
+               ?>
+               <td style="text-align:end"><?= htmlspecialchars($web['currency_symbol'], ENT_QUOTES, 'UTF-8'); ?><?= htmlspecialchars(number_format($ftaxtot, 2), ENT_QUOTES, 'UTF-8'); ?></td>
             </tr>
             <tr class="total">
                <td style="text-align:end">Total</td>
@@ -406,7 +491,7 @@
                <td></td>
                <td></td>
                <td></td>
-               <td style="text-align:end"><?php echo $web['currency_symbol']; echo number_format1($ftaxtot+($row2['quantity']*$row1['unit_price']),2); ?></td>
+               <td style="text-align:end"><?= htmlspecialchars($web['currency_symbol'], ENT_QUOTES, 'UTF-8'); ?><?= htmlspecialchars(number_format($ftaxtot + ($row2['quantity'] * $row1['unit_price']), 2), ENT_QUOTES, 'UTF-8'); ?></td>
             </tr>
          </tbody>
       </table>
@@ -416,29 +501,25 @@
          <tr>
             <td>
                <h3>Bank Details</h3>
-               <p><strong>Name:</strong> <?= $web['title'];?></p>
-               <p><strong>IFSC Code:</strong> <?= $web['ifsc'];?></p>
-               <p><strong>Account No:</strong> <?= $web['acc_no'];?></p>
-               <p><strong>Bank:</strong> <?= $web['branch'];?>,<?= $web['badd'];?></p>
+               <p><strong>Name:</strong> <?= htmlspecialchars($web['title'], ENT_QUOTES, 'UTF-8'); ?></p>
+               <p><strong>IFSC Code:</strong> <?= htmlspecialchars($web['ifsc'], ENT_QUOTES, 'UTF-8'); ?></p>
+               <p><strong>Account No:</strong> <?= htmlspecialchars($web['acc_no'], ENT_QUOTES, 'UTF-8'); ?></p>
+               <p><strong>Bank:</strong> <?= htmlspecialchars($web['branch'], ENT_QUOTES, 'UTF-8'); ?>,<?= htmlspecialchars($web['badd'], ENT_QUOTES, 'UTF-8'); ?></p>
             </td>
             <td class="qr-code" style="display:flex;justify-content:space-between;height:35vh;align-items:center">
                 <div>
                <h3>Payment QR Code</h3>
-               <!--<p><strong>UPI ID:</strong> viniprasad1989-1@okhdfcbank</p>-->
                <p>Google Pay | Paytm | UPI</p>
                </div>
-               <img src="../assets/uploadImage/Logo/<?php echo $web['qr']; ?>" alt="QR Code" width="80px" height="80px">
+               <img src="../assets/uploadImage/Logo/<?= htmlspecialchars($web['qr'], ENT_QUOTES, 'UTF-8'); ?>" alt="QR Code" width="80px" height="80px">
             </td>
          </tr>
          <tr>
             <td >
-               <!--<h3>Terms and Conditions:</h3>-->
-               <!--<p>1. Goods once sold will not be taken back or exchanged</p>-->
-               <!--<p>2. All disputes are subject to [ENTER_YOUR_CITY_NAME] jurisdiction only</p>-->
-               <?php echo html_entity_decode($web['term']) ;?>
+               <?= htmlspecialchars(html_entity_decode($web['term']), ENT_QUOTES, 'UTF-8'); ?>
             </td>
             <td class="qr-code" style="text-align:center">
-               <p><img src="../assets/uploadImage/Logo/<?php echo $web['sign']; ?>" alt="Signature" width="80px" height="80px"></p>
+               <p><img src="../assets/uploadImage/Logo/<?= htmlspecialchars($web['sign'], ENT_QUOTES, 'UTF-8'); ?>" alt="Signature" width="80px" height="80px"></p>
                <p><strong>Authorized Signatory</strong></p>
             </td>
          </tr>

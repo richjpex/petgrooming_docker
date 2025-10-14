@@ -1,27 +1,61 @@
  <?php
-//error_reporting(0);
+// Security headers
+header('X-Content-Type-Options: nosniff');
+header('X-Frame-Options: DENY');
+header('X-XSS-Protection: 1; mode=block');
+
+// Enable proper error reporting for development (disable in production)
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
+
 require_once('../assets/constants/config.php');
 require_once('../assets/constants/check-login.php');
 require_once('../assets/constants/fetch-my-info.php');
 
+// Input validation for GET parameter
+if (!isset($_GET['id']) || empty($_GET['id'])) {
+    die('Invalid request: Missing ID parameter');
+}
+
+if (!filter_var($_GET['id'], FILTER_VALIDATE_INT)) {
+    die('Invalid request: ID must be a valid integer');
+}
+
+$invoice_id = (int)$_GET['id'];
 ?>
 
 <?php 
-
+// Fix SQL injection - use proper prepared statement with parameter binding
+try {
+    $stmt = $conn->prepare("SELECT * FROM tbl_admin WHERE id = ?");
+    $stmt->execute([$_SESSION['id']]);
+    $result = $stmt->fetch(PDO::FETCH_ASSOC);
     
-$stmt = $conn->prepare("SELECT * FROM tbl_admin WHERE id='".$_SESSION['id']."'");
-$stmt->execute();
-$result = $stmt->fetch(PDO::FETCH_ASSOC);
-
+    if (!$result) {
+        throw new Exception('Admin profile not found');
+    }
+} catch (PDOException $e) {
+    error_log('Database error in print1.php admin query: ' . $e->getMessage());
+    die('Error: Unable to load admin data');
+}
 ?>
  
- <?php 
-  $sql = "SELECT * FROM tbl_invoice where  id='".$_GET['id']."'";
- 
-                
- $statement = $conn->prepare($sql);
- $statement->execute();
-$invoice = $statement->fetch(PDO::FETCH_ASSOC);?>
+<?php 
+try {
+    // Fix SQL injection - use proper prepared statement with parameter binding
+    $sql = "SELECT * FROM tbl_invoice WHERE id = ?";
+    $statement = $conn->prepare($sql);
+    $statement->execute([$invoice_id]);
+    $invoice = $statement->fetch(PDO::FETCH_ASSOC);
+    
+    if (!$invoice) {
+        throw new Exception('Invoice not found');
+    }
+} catch (PDOException $e) {
+    error_log('Database error in print1.php invoice query: ' . $e->getMessage());
+    die('Error: Unable to load invoice data');
+}
+?>
  
  
  <?php include('include/head.php');?>
@@ -65,26 +99,25 @@ $invoice = $statement->fetch(PDO::FETCH_ASSOC);?>
                                 <div class="card-header p-4">
 <!--                                     <a class="pt-2 d-inline-block" href="index.html">Concept</a>
 -->                                   
-                                    <div class="float-right"> <h3 class="mb-0">Invoice #<?= $invoice['inv_no']; ?></h3>
-                                    Date:  <?= $invoice['build_date']; ?></div>
+                                    <div class="float-right"> <h3 class="mb-0">Invoice #<?= htmlspecialchars($invoice['inv_no'], ENT_QUOTES, 'UTF-8'); ?></h3>
+                                    Date:  <?= htmlspecialchars($invoice['build_date'], ENT_QUOTES, 'UTF-8'); ?></div>
                                 </div>
                                 <div class="card-body">
                                     <div class="row mb-4">
                                         <div class="col-sm-6">
                                             <h5 class="mb-3">From:</h5>                                            
-                                            <h3 class="text-dark mb-1"><?=$result['fname'];?>&nbsp;<?=$result['lname'];?></h3>
+                                            <h3 class="text-dark mb-1"><?= htmlspecialchars($result['fname'], ENT_QUOTES, 'UTF-8'); ?>&nbsp;<?= htmlspecialchars($result['lname'], ENT_QUOTES, 'UTF-8'); ?></h3>
                                          
-                                            <div><?=$result['address']?></div>
-                                            <div>Email: <?=$result['email']?></div>
-                                            <div>Phone: <?=$result['contact']?></div>
+                                            <div><?= htmlspecialchars($result['address'], ENT_QUOTES, 'UTF-8'); ?></div>
+                                            <div>Email: <?= htmlspecialchars($result['email'], ENT_QUOTES, 'UTF-8'); ?></div>
+                                            <div>Phone: <?= htmlspecialchars($result['contact'], ENT_QUOTES, 'UTF-8'); ?></div>
                                         </div>
                                         <div class="col-sm-6">
                                             <h5 class="mb-3">To:</h5>
-                                            <h3 class="text-dark mb-1"><?= $invoice['customer_id']; ?></h3>                                            
-                                            <div><?= $invoice['c_address']; ?></div>
-<!--                                            <div>Canal Winchester, OH 43110</div>
--->                                            <div>Email: <?= $invoice['c_email']; ?></div>
-                                            <div>Phone: <?= $invoice['customer_no']; ?></div>
+                                            <h3 class="text-dark mb-1"><?= htmlspecialchars($invoice['customer_id'], ENT_QUOTES, 'UTF-8'); ?></h3>                                            
+                                            <div><?= htmlspecialchars($invoice['c_address'], ENT_QUOTES, 'UTF-8'); ?></div>
+                                            <div>Email: <?= htmlspecialchars($invoice['c_email'], ENT_QUOTES, 'UTF-8'); ?></div>
+                                            <div>Phone: <?= htmlspecialchars($invoice['customer_no'], ENT_QUOTES, 'UTF-8'); ?></div>
                                         </div>
                                     </div>
                                     <div class="table-responsive-sm">
@@ -101,33 +134,47 @@ $invoice = $statement->fetch(PDO::FETCH_ASSOC);?>
                                             </thead>
                                             <tbody>
                                                 <?php 
-                                                $sql2 = "SELECT * FROM tbl_quot_inv_items where inv_id='".$_GET['id']."'";
- 
-                
-                                                 $statement2 = $conn->prepare($sql2);
-                                                 $statement2->execute();
-                                                     while($row2= $statement2->fetch(PDO::FETCH_ASSOC))
-                                                     {
-                                                
-                                                           $sql1 = "SELECT * FROM tbl_product where id='".$row2['product_id']."'";
-                                                 
-                                                                
-                                                 $statement1 = $conn->prepare($sql1);
-                                                 $statement1->execute();
-                                                     $row1 = $statement1->fetch(PDO::FETCH_ASSOC);
-                                                
-                                                 
-                                                        $no +=1;
+                                                try {
+                                                    // Fix SQL injection - use proper prepared statement with parameter binding
+                                                    $sql2 = "SELECT * FROM tbl_quot_inv_items WHERE inv_id = ?";
+                                                    $statement2 = $conn->prepare($sql2);
+                                                    $statement2->execute([$invoice_id]);
+                                                    
+                                                    $no = 0; // Initialize counter
+                                                    
+                                                    while($row2 = $statement2->fetch(PDO::FETCH_ASSOC)) {
+                                                        // Validate product_id is numeric
+                                                        if (!is_numeric($row2['product_id'])) {
+                                                            continue; // Skip invalid product IDs
+                                                        }
+                                                        
+                                                        // Fix SQL injection - use proper prepared statement with parameter binding
+                                                        $sql1 = "SELECT * FROM tbl_product WHERE id = ?";
+                                                        $statement1 = $conn->prepare($sql1);
+                                                        $statement1->execute([$row2['product_id']]);
+                                                        $row1 = $statement1->fetch(PDO::FETCH_ASSOC);
+                                                        
+                                                        if (!$row1) {
+                                                            continue; // Skip if product not found
+                                                        }
+                                                        
+                                                        $no += 1;
                                                 ?>
                                                 <tr>
-                                                    <td class="center"><?=$no?></td>
-                                                    <td class="left strong"><?=$row1['name']?></td>
-                                                    <td class="left"><?=$row1['details']?></td>
-                                                    <td class="right"><?=$row2['rate']?></td>
-                                                    <td class="center"><?=$row2['quantity']?></td>
-                                                    <td class="right"><?=$row2['total']?></td>
+                                                    <td class="center"><?= htmlspecialchars($no, ENT_QUOTES, 'UTF-8'); ?></td>
+                                                    <td class="left strong"><?= htmlspecialchars($row1['name'], ENT_QUOTES, 'UTF-8'); ?></td>
+                                                    <td class="left"><?= htmlspecialchars($row1['details'], ENT_QUOTES, 'UTF-8'); ?></td>
+                                                    <td class="right"><?= htmlspecialchars($row2['rate'], ENT_QUOTES, 'UTF-8'); ?></td>
+                                                    <td class="center"><?= htmlspecialchars($row2['quantity'], ENT_QUOTES, 'UTF-8'); ?></td>
+                                                    <td class="right"><?= htmlspecialchars($row2['total'], ENT_QUOTES, 'UTF-8'); ?></td>
                                                 </tr>
-                                                <?php } ?>
+                                                <?php 
+                                                    }
+                                                } catch (PDOException $e) {
+                                                    error_log('Database error in print1.php products query: ' . $e->getMessage());
+                                                    echo '<tr><td colspan="6">Error loading products</td></tr>';
+                                                }
+                                                ?>
                                             </tbody>
                                         </table>
                                     </div>
@@ -141,23 +188,24 @@ $invoice = $statement->fetch(PDO::FETCH_ASSOC);?>
                                                         <td class="left">
                                                             <strong class="text-dark">Subtotal</strong>
                                                         </td>
-                                                        <td class="right"><?=$invoice['subtotal']?></td>
+                                                        <td class="right"><?= htmlspecialchars($invoice['subtotal'], ENT_QUOTES, 'UTF-8'); ?></td>
                                                     </tr>
                                                     <tr>
                                                         <td class="left">
-                                                            <strong class="text-dark">Discount (<?=$invoice['discount']?>%)</strong>
+                                                            <strong class="text-dark">Discount (<?= htmlspecialchars($invoice['discount'], ENT_QUOTES, 'UTF-8'); ?>%)</strong>
                                                         </td>
                                                         <td class="right"><?php
-                                                        echo $discount=$invoice['subtotal']*($invoice['discount']/100);
+                                                        $discount = $invoice['subtotal'] * ($invoice['discount'] / 100);
+                                                        echo htmlspecialchars($discount, ENT_QUOTES, 'UTF-8');
                                                         ?></td>
                                                     </tr>
                                                     <tr>
                                                         <td class="left">
-                                                            <strong class="text-dark">GST (<?=$invoice['gst_rate']?>%)</strong>
+                                                            <strong class="text-dark">GST (<?= htmlspecialchars($invoice['gst_rate'], ENT_QUOTES, 'UTF-8'); ?>%)</strong>
                                                         </td>
                                                         <td class="right"><?php
-                                                        $gst_rate=($invoice['subtotal']-$discount)*($invoice['gst_rate']/100);
-                                                        echo number_format1($gst_rate,2);
+                                                        $gst_rate = ($invoice['subtotal'] - $discount) * ($invoice['gst_rate'] / 100);
+                                                        echo htmlspecialchars(number_format($gst_rate, 2), ENT_QUOTES, 'UTF-8');
                                                         ?></td>
                                                     </tr>
                                                     <tr>
@@ -165,7 +213,7 @@ $invoice = $statement->fetch(PDO::FETCH_ASSOC);?>
                                                             <strong class="text-dark">Total</strong>
                                                         </td>
                                                         <td class="right">
-                                                            <strong class="text-dark"><?=$invoice['final_total']?></strong>
+                                                            <strong class="text-dark"><?= htmlspecialchars($invoice['final_total'], ENT_QUOTES, 'UTF-8'); ?></strong>
                                                         </td>
                                                     </tr>
                                                 </tbody>
