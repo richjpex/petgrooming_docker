@@ -2,9 +2,9 @@
 This is a petgrooming website
 
 ## Fixes
-- [ ] F-001: SQLi for edit.php 
-- [ ] F-002: file upload for profile.php
-- [ ] F-004: stored XSS (F-004)
+- [x] F-001: SQLi for edit.php 
+- [x] F-002: file upload for profile.php
+- [x] F-004: stored XSS (F-004)
 - [ ] F-005: edit password
 - [ ] F-007: unencrypted HTTP connection
 
