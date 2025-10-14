@@ -1,6 +1,10 @@
 # petgrooming_erp
 This is a petgrooming website
 
+## How to run web app
+1. Make sure you run `chmod +x docker-script.sh` first
+2. Run the `./docker-script.sh` script
+
 ## Link to pentest report
 https://docs.google.com/document/d/1NAnb-iX-YRf3ixIHzveerAvNZNx9gZSKx0aVy8lelsc/edit?usp=sharing
 
