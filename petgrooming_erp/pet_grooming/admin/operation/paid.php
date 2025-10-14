@@ -14,23 +14,26 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $conn = new PDO("mysql:host=$servername;dbname=$dbname", $username, $password);
         $conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
-
-
+        // Sanitize and validate due_total
+        $due_total = isset($_POST['due_total']) && $_POST['due_total'] !== '' ? intval($_POST['due_total']) : 0;
 
         // Prepare SQL statement for inserting data
         $added_date = date('Y-m-d');
-        $stmt = $conn->prepare("INSERT INTO `tbl_installement`(`inv_no`, `added_date`, `insta_amt`,`due_total`,`ptype`) VALUES ('" . $_POST['inv_no'] . "','" . $added_date . "','" . $_POST['insta_amt'] . "','" . $_POST['due_total'] . "','" . $_POST['ptype'] . "')");
-        $stmt->execute();
+        $stmt = $conn->prepare("INSERT INTO `tbl_installement`(`inv_no`, `added_date`, `insta_amt`,`due_total`,`ptype`) VALUES (:inv_no, :added_date, :insta_amt, :due_total, :ptype)");
+        $stmt->execute([
+            ':inv_no' => $_POST['inv_no'],
+            ':added_date' => $added_date,
+            ':insta_amt' => $_POST['insta_amt'],
+            ':due_total' => $due_total,
+            ':ptype' => $_POST['ptype']
+        ]);
         $paid = $_POST['paid_amt'] + $_POST['insta_amt'];
 
         //echo $paid;exit;
         $stmt = $conn->prepare("UPDATE `tbl_invoice` SET due_total=:due_total, paid_amt=:paid_amt WHERE id=:id");
-        $stmt->bindParam(':due_total', $_POST['due_total']);
-
+        $stmt->bindParam(':due_total', $due_total);
         $stmt->bindParam(':paid_amt', $paid);
-
         $stmt->bindParam(':id', $_POST['id']);
-
 
         $execute = $stmt->execute();
         $_SESSION['success'] = "record Updated";

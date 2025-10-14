@@ -21,26 +21,63 @@ if (isset($_SESSION['logged']) && $_SESSION['logged'] == "1" && $_SESSION['role'
                 // Start transaction
                 $conn->beginTransaction();
 
-                // Insert into tbl_invoice
+
+
+                // Calculate totals from product data
+                $subtotal = 0;
+                $product_ids = $_POST['product_id'] ?? [];
+                $quantities = $_POST['quantity'] ?? [];
+                $rates = $_POST['rate'] ?? [];
+
+                if (!empty($product_ids) && count($product_ids) == count($quantities)) {
+                    for ($i = 0; $i < count($product_ids); $i++) {
+                        $quantity = floatval($quantities[$i]);
+                        $rate = floatval($rates[$i]);
+                        $subtotal += $quantity * $rate;
+                    }
+                }
+
+                $advance_total = floatval($_POST['advance_total'] ?? 0);
+                $final_total = $subtotal; // Add any other fees/taxes if needed
+                $due_total = $final_total - $advance_total;
+
+                // Generate inv_no if not provided
+                $inv_no = isset($_POST['inv_no']) && $_POST['inv_no'] !== '' ? htmlspecialchars($_POST['inv_no']) : null;
+                if (!$inv_no) {
+                    // Get next invoice number from DB
+                    $stmt_inv = $conn->prepare("SELECT COUNT(*) as cnt FROM tbl_invoice");
+                    $stmt_inv->execute();
+                    $row_inv = $stmt_inv->fetch(PDO::FETCH_ASSOC);
+                    $inv_no = sprintf('%04d', 10000 + $row_inv['cnt'] + 1);
+                }
+
+                // Use build_date from POST or default to today
+                $build_date = isset($_POST['build_date']) && $_POST['build_date'] !== '' ? htmlspecialchars($_POST['build_date']) : date('Y-m-d');
+
+                // Insert into tbl_invoice using only server-calculated values
+                $currentdatetime = date('Y-m-d H:i:s');
                 $stmt = $conn->prepare("INSERT INTO `tbl_invoice`
-                ( `build_date`, `customer_id`, `inv_no`,`user`, `subtotal`, `final_total`, `advance_total`, `due_total`, `paid_amt`, `ptype`, `created_date`, `due_date`) 
-                VALUES ( :build_date, :customer_id, :inv_no,:user, :subtotal, :final_total, :advance_total, :due_total, :paid_amt, :ptype, :created_date, :due_date)");
+                ( `build_date`, `inv_no`, `user`, `customer_id`, `status`, `subtotal`, `discount`, `final_total`, `advance_total`, `due_total`, `paid_amt`, `ptype`, `delete_status`, `currentdatetime`, `created_date`, `due_date`, `gst_rate`) 
+                VALUES ( :build_date, :inv_no, :user, :customer_id, :status, :subtotal, :discount, :final_total, :advance_total, :due_total, :paid_amt, :ptype, :delete_status, :currentdatetime, :created_date, :due_date, :gst_rate)");
 
                 $stmt->execute([
-                   
-                    ':build_date' => htmlspecialchars($_POST['build_date']),
+                    ':build_date' => $build_date,
+                    ':inv_no' => $inv_no,
+                    ':user' => htmlspecialchars($_POST['user']),
                     ':customer_id' => htmlspecialchars($_POST['customer_name']),
-                 
-                    ':inv_no' => htmlspecialchars($_POST['inv_no']),
-                     ':user' => htmlspecialchars($_POST['user']),
-                    ':subtotal' => htmlspecialchars($_POST['subtotal']),
-                    ':final_total' => htmlspecialchars($_POST['final_total']),
-                    ':advance_total' => htmlspecialchars($_POST['advance_total']),
-                    ':due_total' => htmlspecialchars($_POST['due_total']),
-                    ':paid_amt' => htmlspecialchars($_POST['advance_total']), // Ensure this logic is correct
+                    ':status' => 0,
+                    ':subtotal' => $subtotal,
+                    ':discount' => 0,
+                    ':final_total' => $final_total,
+                    ':advance_total' => $advance_total,
+                    ':due_total' => $due_total,
+                    ':paid_amt' => $advance_total,
                     ':ptype' => htmlspecialchars($_POST['ptype']),
+                    ':delete_status' => 0,
+                    ':currentdatetime' => $currentdatetime,
                     ':created_date' => date('Y-m-d'),
-                    ':due_date' => htmlspecialchars($_POST['due_date'])
+                    ':due_date' => htmlspecialchars($_POST['due_date']),
+                    ':gst_rate' => 0
                 ]);
 
                 $last_inserted_id = $conn->lastInsertId();

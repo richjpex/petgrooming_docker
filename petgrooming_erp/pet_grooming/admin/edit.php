@@ -64,16 +64,24 @@ require_once('../assets/constants/fetch-my-info.php');
                                 <input type="text" value="<?php echo $product['inv_no']; ?>" name="inv_no" value="<?php echo sprintf('%04d', intval($new)) ?>" class="form-control" required readonly>
                                 <div class="form_bottom_boder"></div>
                             </div>
-                            <input type="hidden" name="subtotal" id="subtotal" class="form-control" value="<?php echo $product['subtotal']; ?>" placeholder="Subtotal" readonly="">
+                            <input type="hidden" name="subtotal" id="subtotal" class="form-control blocked-field" value="<?php echo $product['subtotal']; ?>" placeholder="Subtotal" readonly disabled>
                             <div class="mb-3 col-md-6">
                                 <label class="txt-lbl">Final Total<span class="text-danger">*</span></label>
-                                <input type="text" name="final_total" id="final_total" placeholder="Total" value="<?php echo $product['final_total']; ?>" onblur="myFunction()" class="form-control">
+                                <input type="text" name="final_total" id="final_total" placeholder="Total" value="<?php echo $product['final_total']; ?>" onblur="myFunction()" class="form-control blocked-field" readonly disabled>
                                 <div class="form_bottom_boder"></div>
                             </div>
 
                             <div class="mb-3 col-md-6">
                                 <label class="txt-lbl">Due Amount<span class="text-danger">*</span></label>
-                                <input type="text" name="due_total" id="due_total" onblur="myFunction()" value="<?php echo $product['due_total']; ?>" placeholder="Due Amount" readonly="" class="form-control">
+                                <input type="text" name="due_total" id="due_total" value="<?php echo $product['due_total']; ?>" placeholder="Due Amount" readonly disabled class="form-control blocked-field">
+<style>
+    .blocked-field[readonly], .blocked-field[disabled] {
+        pointer-events: none;
+        background: #e9ecef;
+        color: #6c757d;
+        cursor: not-allowed;
+    }
+</style>
                                 <div class="form_bottom_boder"></div>
                             </div>
 
