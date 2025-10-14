@@ -1,4 +1,4 @@
-# petgrooming_erp
+# petgrooming_docker
 This is a Pet Grooming Management Website for Security Engineering Internship at RT&Co Cybersecurity
 
 ## How to run web app
