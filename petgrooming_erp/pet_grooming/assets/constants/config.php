@@ -8,5 +8,3 @@ $dbname = $_ENV['DB_NAME'] ?? getenv('DB_NAME');
 // Application settings
 $currency = "INR";
 date_default_timezone_set('Asia/Kolkata');
-
-date_default_timezone_set($timezone);
