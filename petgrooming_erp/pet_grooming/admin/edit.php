@@ -16,18 +16,25 @@ require_once('../assets/constants/fetch-my-info.php');
                     <h5 class="card-header">Add Installment</h5>
                     <div class="card-body">
                         <?php
-                        $stmt = $conn->prepare("SELECT * FROM tbl_invoice WHERE id='" . $_POST['id'] . "'");
+                        // Strictly validate id as integer and block suspicious input
+                        if (!isset($_POST['id']) || !preg_match('/^\d{1,10}$/', $_POST['id'])) {
+                            echo "<script>alert('Invalid invoice ID.');window.history.back();</script>";
+                            exit;
+                        }
+                        $invoice_id = intval($_POST['id']);
+                        $stmt = $conn->prepare("SELECT * FROM tbl_invoice WHERE id = :id");
+                        $stmt->bindParam(':id', $invoice_id, PDO::PARAM_INT);
                         $stmt->execute();
                         $product = $stmt->fetch(PDO::FETCH_ASSOC);
 
                         $sqlq = "SELECT * FROM tbl_customer where cust_id = ? ";
 
 
-                                    $stat = $conn->prepare($sqlq);
-                                    $stat->execute([$product['customer_id']]);
+                        $stat = $conn->prepare($sqlq);
+                        $stat->execute([$product['customer_id']]);
 
 
-                                 $cust = $stat->fetch();
+                        $cust = $stat->fetch();
                         ?>
                         <form id="add-result" class="sign-in-form mt-32 add_customer row">
                             <input type="hidden" class="form-control " name="id" value="<?= $product['id']; ?>">
@@ -39,7 +46,7 @@ require_once('../assets/constants/fetch-my-info.php');
                                 <input type="text" id="text" name="cust_name" value="<?php echo $cust['cust_name']; ?>" class="form-control">
                                 <div class="form_bottom_boder"></div>
                             </div>
-                           
+
                             <div class="mb-3 col-md-6">
                                 <label class="txt-lbl">Date<span class="text-danger">*</span></label>
                                 <input type="date" name="build_date" class="form-control" value="<?php echo $product['build_date']; ?>" data-provide="datepicker" required readonly>
@@ -47,7 +54,7 @@ require_once('../assets/constants/fetch-my-info.php');
                             </div>
                             <div class="mb-3 col-md-6">
                                 <label class="txt-lbl">Invoice No.<span class="text-danger">*</span></label>
-                                <?php 
+                                <?php
                                 $user = "select count(*) as cnt from tbl_invoice";
                                 $statement = $conn->prepare($user);
                                 $statement->execute();
@@ -77,20 +84,20 @@ require_once('../assets/constants/fetch-my-info.php');
                             </div>
                             <div class="mb-3 col-md-6">
                                 <label class="txt-lbl">Select Payment Method</label>
-                                     <select name="ptype" class="form-control" required>
-  <option value="1" <?php echo ($product['ptype'] == '1') ? 'selected' : ''; ?> >CASH</option>
-  <option value="2" <?php echo ($product['ptype'] == '2') ? 'selected' : ''; ?> >ONLINE</option>
-  <option value="3" <?php echo ($product['ptype'] == '3') ? 'selected' : ''; ?> >CHEQUE</option>
-  <option value="4" <?php echo ($product['ptype'] == '4') ? 'selected' : ''; ?> >DEBIT CARD</option>
-  <option value="5" <?php echo ($product['ptype'] == '5') ? 'selected' : ''; ?> >CREDIT CARD</option>
-  <option value="6" <?php echo ($product['ptype'] == '6') ? 'selected' : ''; ?> >UPI</option>
-  <option value="7" <?php echo ($product['ptype'] == '7') ? 'selected' : ''; ?> >NET BANKING</option>
-  <option value="8" <?php echo ($product['ptype'] == '8') ? 'selected' : ''; ?> >PAYTM</option>
-  <option value="9" <?php echo ($product['ptype'] == '9') ? 'selected' : ''; ?> >GOOGLE PAY</option>
-  <option value="10" <?php echo ($product['ptype'] == '10') ? 'selected' : ''; ?> >PHONEPE</option>
-  <option value="11" <?php echo ($product['ptype'] == '11') ? 'selected' : ''; ?> >BANK TRANSFER</option>
-</select>
-                              
+                                <select name="ptype" class="form-control" required>
+                                    <option value="1" <?php echo ($product['ptype'] == '1') ? 'selected' : ''; ?>>CASH</option>
+                                    <option value="2" <?php echo ($product['ptype'] == '2') ? 'selected' : ''; ?>>ONLINE</option>
+                                    <option value="3" <?php echo ($product['ptype'] == '3') ? 'selected' : ''; ?>>CHEQUE</option>
+                                    <option value="4" <?php echo ($product['ptype'] == '4') ? 'selected' : ''; ?>>DEBIT CARD</option>
+                                    <option value="5" <?php echo ($product['ptype'] == '5') ? 'selected' : ''; ?>>CREDIT CARD</option>
+                                    <option value="6" <?php echo ($product['ptype'] == '6') ? 'selected' : ''; ?>>UPI</option>
+                                    <option value="7" <?php echo ($product['ptype'] == '7') ? 'selected' : ''; ?>>NET BANKING</option>
+                                    <option value="8" <?php echo ($product['ptype'] == '8') ? 'selected' : ''; ?>>PAYTM</option>
+                                    <option value="9" <?php echo ($product['ptype'] == '9') ? 'selected' : ''; ?>>GOOGLE PAY</option>
+                                    <option value="10" <?php echo ($product['ptype'] == '10') ? 'selected' : ''; ?>>PHONEPE</option>
+                                    <option value="11" <?php echo ($product['ptype'] == '11') ? 'selected' : ''; ?>>BANK TRANSFER</option>
+                                </select>
+
                             </div>
                             <div class="sign-in mt-32 col-md-12">
                                 <button type="submit" class="btn btn-primary">Save</button>
@@ -145,30 +152,29 @@ require_once('../assets/constants/fetch-my-info.php');
         });
     });
 
-  function myFunction() {
-    var dueTotal = parseFloat(document.getElementById("due_total").value) || 0;
-    var installmentAmount = parseFloat(document.getElementById("insta_amt").value) || 0;
-    var finalTotal = parseFloat(document.getElementById("final_total").value) || 0;
+    function myFunction() {
+        var dueTotal = parseFloat(document.getElementById("due_total").value) || 0;
+        var installmentAmount = parseFloat(document.getElementById("insta_amt").value) || 0;
+        var finalTotal = parseFloat(document.getElementById("final_total").value) || 0;
 
-    // Set max limit dynamically
-    document.getElementById("insta_amt").setAttribute("max", dueTotal);
+        // Set max limit dynamically
+        document.getElementById("insta_amt").setAttribute("max", dueTotal);
 
-    if (installmentAmount > dueTotal) {
-      document.getElementById("insta_amt").value = dueTotal; // Restrict entry
+        if (installmentAmount > dueTotal) {
+            document.getElementById("insta_amt").value = dueTotal; // Restrict entry
+        }
+
+        var newDueTotal = dueTotal - parseFloat(document.getElementById("insta_amt").value);
+        document.getElementById("due_total").value = newDueTotal.toFixed(2);
     }
 
-    var newDueTotal = dueTotal - parseFloat(document.getElementById("insta_amt").value);
-    document.getElementById("due_total").value = newDueTotal.toFixed(2);
-  }
+    // Restrict invalid input in real-time
+    document.getElementById("insta_amt").addEventListener("input", function() {
+        var dueTotal = parseFloat(document.getElementById("due_total").value) || 0;
+        var installmentAmount = parseFloat(this.value) || 0;
 
-  // Restrict invalid input in real-time
-  document.getElementById("insta_amt").addEventListener("input", function () {
-    var dueTotal = parseFloat(document.getElementById("due_total").value) || 0;
-    var installmentAmount = parseFloat(this.value) || 0;
-
-    if (installmentAmount > dueTotal) {
-      this.value = dueTotal; // Stop entry beyond due amount
-    }
-  });
-
+        if (installmentAmount > dueTotal) {
+            this.value = dueTotal; // Stop entry beyond due amount
+        }
+    });
 </script>
