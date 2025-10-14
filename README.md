@@ -1,10 +1,13 @@
 # petgrooming_erp
 This is a petgrooming website
 
+## Link to pentest report
+https://docs.google.com/document/d/1NAnb-iX-YRf3ixIHzveerAvNZNx9gZSKx0aVy8lelsc/edit?usp=sharing
+
 ## Fixes
 - [x] F-001: SQLi for edit.php 
 - [x] F-002: file upload for profile.php
-- [ ] F-003: hardcoded credentials in config.php
+- [x] F-003: hardcoded credentials in config.php
 - [x] F-004: stored XSS (F-004)
 - [ ] F-005: edit password
 - [ ] F-007: unencrypted HTTP connection
