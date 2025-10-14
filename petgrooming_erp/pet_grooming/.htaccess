@@ -3,4 +3,9 @@ RewriteCond %{REQUEST_FILENAME} !-d
 RewriteCond %{REQUEST_FILENAME}\.php -f
 RewriteRule ^(.*)$ $1.php [NC,L]
 
+<Files ~ "\.sql$">
+    Order Deny,Allow
+    Deny from all
+</Files>
+
 php_flag display_errors off

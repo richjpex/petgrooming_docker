@@ -1,0 +1,69 @@
+services:
+  # 1. WEB/APP Service (Assumes ./petgrooming_erp/Dockerfile installs Apache, PHP, and SSL modules)
+  web:
+    build: ./petgrooming_erp
+    container_name: petgrooming_web
+    ports:
+      # Map host port 443 to container port 443 (for HTTPS)
+      - '443:443'
+      # Map host port 80 to container port 80 (for HTTP->HTTPS redirect)
+      - '80:80'
+    volumes:
+      # Mount the custom VHost/SSL configuration to overwrite the default
+      # Assumes Apache configuration path.
+      - ./apache/vhost-ssl.conf:/etc/apache2/sites-enabled/000-default.conf
+      
+      # Mount the Certificates to the location referenced in vhost-ssl.conf
+      - ./apache/certs:/etc/apache2/ssl
+      
+      # Mount application code
+      - ./petgrooming_erp/pet_grooming:/var/www/html/pet_grooming
+      
+      # Mount PHP configuration
+      - ./php/php.ini:/usr/local/etc/php/php.ini 
+      
+    depends_on:
+      - mariadb
+    networks:
+      - petgrooming_network
+    restart: always
+
+  # 2. phpMyAdmin Service
+  phpmyadmin:
+    # Use the official image directly.
+    image: phpmyadmin/phpmyadmin:latest 
+    container_name: petgrooming_pma
+    ports:
+      # Map host port 8443 to container port 80 (pma's default HTTP port)
+      - '8443:80' 
+    environment:
+      PMA_ARBITRARY: 1
+      PMA_HOST: mariadb 
+    depends_on:
+      - mariadb
+    # IMPORTANT: Removed incorrect volume mounts that broke the service
+    networks:
+      - petgrooming_network
+    restart: always
+
+  # 3. MariaDB Service
+  mariadb:
+    image: mariadb:latest
+    container_name: mariadb
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: jK657QqAa0ns
+      MYSQL_DATABASE: 'pet_grooming'
+    volumes:
+      - ./petgrooming_erp/Database:/docker-entrypoint-initdb.d
+      - mysqldata:/var/lib/mysql
+    networks:
+      - petgrooming_network
+
+volumes:
+  mysqldata:
+    driver: local
+
+networks:
+  petgrooming_network:
+    driver: bridge
