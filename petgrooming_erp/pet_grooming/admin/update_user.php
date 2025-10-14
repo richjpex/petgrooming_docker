@@ -8,7 +8,8 @@ require_once('../assets/constants/fetch-my-info.php');
 <?php
 
 
-$stmt = $conn->prepare("SELECT * FROM tbl_admin WHERE id='" . $_POST['id'] . "'");
+$stmt = $conn->prepare("SELECT * FROM tbl_admin WHERE id = :id");
+$stmt->bindParam(':id', $_POST['id'], PDO::PARAM_INT);
 $stmt->execute();
 $product_group = $stmt->fetch(PDO::FETCH_ASSOC);
 $stmt = $conn->prepare("SELECT * FROM tbl_groups WHERE name != 'admin' and delete_status='0'");
@@ -109,14 +110,19 @@ $groups = $stmt->fetchAll();
 
                                 <input class="form-control" type="hidden" name="old_pass" value="<?php echo $product_group['password'] ?>">
 
-                                <div class="col-xl-6 col-lg-6 col-md-12 col-sm-12 col-12 mb-2">
-                                    <label for="validationCustom02">Password<span class="text-danger">*</span></label>
-                                    <input type="password" name="password" id="newpassword" pattern=".{8,}" class="form-control mb-1" required data-validation-required-message="Password is required" placeholder="Enter Password" value="<?php echo $product_group['password'] ?>">
-                                    <div class="valid-feedback">
+
+                                    <div class="col-xl-6 col-lg-6 col-md-12 col-sm-12 col-12 mb-2">
+                                        <label for="validationCustom02">Current Password<span class="text-danger">*</span></label>
+                                        <input type="password" name="current_password" id="currentpassword" class="form-control mb-1" required data-validation-required-message="Current password is required" placeholder="Enter Current Password">
+                                        <div class="valid-feedback"></div>
                                     </div>
 
-                                    <span id="password-strength"></span>
-                                </div>
+                                    <div class="col-xl-6 col-lg-6 col-md-12 col-sm-12 col-12 mb-2">
+                                        <label for="validationCustom02">New Password<span class="text-danger">*</span></label>
+                                        <input type="password" name="password" id="newpassword" class="form-control mb-1" required data-validation-required-message="Password is required" placeholder="Enter New Password">
+                                        <div class="valid-feedback"></div>
+                                        <span id="password-strength"></span>
+                                    </div>
                                 
                                 
                                          
@@ -227,21 +233,16 @@ $groups = $stmt->fetchAll();
     function checkPasswordStrength() {
         var password = document.getElementById("newpassword").value;
         var strengthText = document.getElementById("password-strength");
-
-        var passwordLength = password.length;
         var strengthLabel = "";
+        var regex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_\-+=]).{8,}$/;
 
-        if (passwordLength >= 8 && passwordLength <= 10) {
-            strengthLabel = "Medium";
-            strengthText.style.color = "orange";
-        } else if (passwordLength > 10) {
+        if (regex.test(password)) {
             strengthLabel = "Strong";
             strengthText.style.color = "green";
         } else {
-            strengthLabel = "Weak";
+            strengthLabel = "Weak (min 8 chars, upper, lower, digit, special)";
             strengthText.style.color = "red";
         }
-
         strengthText.innerHTML = strengthLabel;
     }
 </script>

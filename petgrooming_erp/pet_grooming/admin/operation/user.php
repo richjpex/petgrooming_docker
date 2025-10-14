@@ -67,12 +67,12 @@ $stmt->execute();
     if (isset($_POST['btn_edit'])) {
       //$id=$_GET['id'];
       //echo "string";
+
       $target_dir = "../../assets/uploadImage/Candidate/";
       $website_logo = basename($_FILES["website_image"]["name"]);
       if ($_FILES["website_image"]["tmp_name"] != '') {
         $image = $target_dir . basename($_FILES["website_image"]["name"]);
         if (move_uploaded_file($_FILES["website_image"]["tmp_name"], $image)) {
-
           @unlink("../../assets/uploadImage/Candidate/" . $_POST['old_website_image']);
         } else {
           echo "Sorry, there was an error uploading your file.";
@@ -81,19 +81,39 @@ $stmt->execute();
         $website_logo = $_POST['old_website_image'];
       }
 
-
-      if ($_POST['old_pass'] == $_POST['password']) {
-        $password = $_POST['password'];
-      } else {
-        $passw = hash('sha256', $_POST['password']);
-
-        function createSalt()
-        {
-          return '2123293dsj2hu2nikhiljdsd';
-        }
-        $salt = createSalt();
-        $password = hash('sha256', $salt . $passw);
+      // Password policy: min 8 chars, upper, lower, digit, special
+      $newPassword = $_POST['password'];
+      $passwordPolicy = "/^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[!@#$%^&*()_\-+=]).{8,}$/";
+      if (!preg_match($passwordPolicy, $newPassword)) {
+        $_SESSION['error'] = "Password must be at least 8 characters and include upper, lower, digit, and special character.";
+        header('location:../update_user.php?id=' . $_POST['id']);
+        exit;
       }
+
+      // Require current password for self-service
+      $id = $_POST['id'];
+      $stmt = $conn->prepare("SELECT password FROM tbl_admin WHERE id = :id");
+      $stmt->bindParam(':id', $id, PDO::PARAM_INT);
+      $stmt->execute();
+      $row = $stmt->fetch(PDO::FETCH_ASSOC);
+      $dbPassword = $row['password'];
+
+      // Hash submitted current password for comparison
+      $currentPassword = $_POST['current_password'];
+      $currentPassw = hash('sha256', $currentPassword);
+      function createSalt() { return '2123293dsj2hu2nikhiljdsd'; }
+      $salt = createSalt();
+      $currentPasswordHash = hash('sha256', $salt . $currentPassw);
+
+      if ($dbPassword !== $currentPasswordHash) {
+        $_SESSION['error'] = "Current password is incorrect.";
+        header('location:../update_user.php?id=' . $_POST['id']);
+        exit;
+      }
+
+      // Hash new password for storage
+      $passw = hash('sha256', $newPassword);
+      $password = hash('sha256', $salt . $passw);
 
 
       $stmt = $conn->prepare("UPDATE tbl_admin SET email=:email, role_id=:group_id, fname=:fname, lname=:lname, password=:password , project=:project, address=:address, contact=:contact WHERE id=:id");
