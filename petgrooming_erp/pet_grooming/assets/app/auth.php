@@ -7,17 +7,9 @@ session_start();
 require_once('../constants/config.php');
 
 $email_address = $_POST['email'];
-//print_r($email_address); exit;
 $passw = hash('sha256', $_POST['password']);
 
-// print_r($passw); exit;
-//$passw = hash('sha256',$p);
-//echo $passw;exit;
-function createSalt()
-{
-  return '2123293dsj2hu2nikhiljdsd';
-}
-$salt = createSalt();
+$salt = getenv('APP_SECURITY_SALT');
 $pass = hash('sha256', $salt . $passw);
 //
 try {

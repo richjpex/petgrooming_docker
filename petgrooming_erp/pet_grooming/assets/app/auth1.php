@@ -10,13 +10,7 @@ require_once('../constants/config.php');
 $email_address = $_POST['email'];
 
 $passw = hash('sha256', $_POST['password']);
-//$passw = hash('sha256',$p);
-//echo $passw;exit;
-function createSalt()
-{
-    return '2123293dsj2hu2nikhiljdsd';
-}
-$salt = createSalt();
+$salt = getenv('APP_SECURITY_SALT');
 $pass = hash('sha256', $salt . $passw);
 try {
 $conn = new PDO("mysql:host=$servername;dbname=$dbname", $username, $password);

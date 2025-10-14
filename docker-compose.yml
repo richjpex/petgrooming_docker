@@ -17,6 +17,7 @@ services:
       # Application configuration
       APP_CURRENCY: INR
       APP_TIMEZONE: Asia/Kolkata
+      APP_SECURITY_SALT: 2123293dsj2hu2nikhiljdsd
     volumes:
       # Mount the custom VHost/SSL configuration to overwrite the default
       # Assumes Apache configuration path.
