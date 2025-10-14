@@ -1,5 +1,5 @@
 # petgrooming_erp
-This is a petgrooming website
+This is a Pet Grooming Management Website for Security Engineering Internship at RT&Co Cybersecurity
 
 ## How to run web app
 1. Make sure you run `chmod +x run.sh` first
