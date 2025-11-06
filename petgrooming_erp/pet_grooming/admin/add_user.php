@@ -21,7 +21,6 @@ $result = $stmt->fetchAll();
         <!-- ============================================================== -->
         <!-- pageheader -->
         <!-- ============================================================== -->
-        <!-- <div class="row">
                     <div class="col-xl-12 col-lg-12 col-md-12 col-sm-12 col-12">
                         <div class="page-header">
                             <h2 class="pageheader-title">Candidate </h2>
@@ -38,7 +37,7 @@ $result = $stmt->fetchAll();
                         </div>
                     </div>
                 </div>
-                 --><!-- ============================================================== -->
+                <!-- ============================================================== -->
         <!-- end pageheader -->
         <!-- ============================================================== -->
         <div class="row">
@@ -107,25 +106,6 @@ $result = $stmt->fetchAll();
                                 </div>
                                 
                                 
-                      <!--           <div class="col-xl-6 col-lg-6 col-md-12 col-sm-12 col-12 mb-2">-->
-                      <!--              <label for="validationCustom01">Project</label>-->
-                      <!--              <select type="text" class="form-control" name="project" required="" value="">-->
-
-                      <!--                <option>Select</option>-->
-                      <!--                              </?php $stmt = $conn->prepare("SELECT * FROM `project` WHERE delete_status='0' ");-->
-                      <!--/$stmt->execute();-->
-                      <!--$record = $stmt->fetchAll();-->
-
-                      <!--/foreach ($record as $res) { ?>-->
-
-                      <!--  <option value="</?php echo $res['id'] ?>">-->
-                      <!--  </?php echo $res['name'];-->
-                      <!--/} ?>-->
-                      <!--  </option>-->
-                      <!--              </select>-->
-                      <!--              <div class="valid-feedback">-->
-                      <!--              </div>-->
-                      <!--          </div>-->
                                 
                                 
                                 
