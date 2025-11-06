@@ -12,11 +12,11 @@ https://docs.google.com/document/d/1NAnb-iX-YRf3ixIHzveerAvNZNx9gZSKx0aVy8lelsc/
 - [x] F-001: SQLi for edit.php 
 - [x] F-002: file upload for profile.php
 - [x] F-003: hardcoded credentials in config.php
-- [x] F-004: stored XSS (F-004)
+- [x] F-004: stored XSS
 - [x] F-005: edit password
 - [x] F-007: unencrypted HTTP connection
 
-## Endpoints to test
+## Testing for fixes
 - F-001: https://localhost/admin/view_order.php and then Add Installment Payments, run sqlmap
 - F-002: https://localhost/admin/profile.php and then Choose File, upload random files and see if it updates
 - F-003: try looking for hardcoded credentials or secrets in the source code (do not include docker-compose.yml)
