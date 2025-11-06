@@ -7,8 +7,16 @@ require_once('../assets/constants/fetch-my-info.php');
 ?>
 <?php
 
+// Validate incoming id as an integer to prevent SQL injection
+$id = filter_input(INPUT_POST, 'id', FILTER_VALIDATE_INT);
+if ($id === false || $id === null) {
+    // Invalid id supplied; stop processing
+    header('HTTP/1.1 400 Bad Request');
+    exit('Invalid product id');
+}
 
-$stmt = $conn->prepare("SELECT * FROM tbl_product WHERE id='" . $_POST['id'] . "'");
+$stmt = $conn->prepare("SELECT * FROM tbl_product WHERE id = :id LIMIT 1");
+$stmt->bindValue(':id', $id, PDO::PARAM_INT);
 $stmt->execute();
 $product = $stmt->fetch(PDO::FETCH_ASSOC);
 

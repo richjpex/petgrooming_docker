@@ -50,38 +50,85 @@ if (isset($_POST['add_stock'])) {
       $openning_stock = 0;
       
       
-      $gst=$_POST['gst'];
+    $gst = $_POST['gst'] ?? [];
 
-      $expl=implode(',',$gst);
-      
-   
-      $selling_cost= '';
-      if($_POST['exp']==1){
-          $selling_cost= $_POST['unit_price'];
-      }else  if($_POST['exp']==0){
-          $selling_cost = $_POST['selling_gst'];
+    // Validate and sanitize numeric inputs
+    $purchase_price = filter_var($_POST['purchase_price'], FILTER_VALIDATE_FLOAT);
+    $unit_price = filter_var($_POST['unit_price'], FILTER_VALIDATE_FLOAT);
+    if ($purchase_price === false || $purchase_price < 0) {
+      $_SESSION['error'] = "Invalid purchase price.";
+      header('location:../productdisplay.php');
+      exit;
+    }
+    if ($unit_price === false || $unit_price < 0) {
+      $_SESSION['error'] = "Invalid unit price.";
+      header('location:../productdisplay.php');
+      exit;
+    }
+
+    // Validate GST ids and compute total GST percentage from trusted DB values
+    $gst_ids = array_map('intval', $gst);
+    $totalGST = 0.0;
+    if (!empty($gst_ids)) {
+      $taxStmt = $conn->prepare("SELECT id, percentage FROM tbl_tax WHERE delete_status='0' AND id = :id LIMIT 1");
+      foreach ($gst_ids as $tid) {
+        if ($tid <= 0) {
+          $_SESSION['error'] = "Invalid tax selection.";
+          header('location:../productdisplay.php');
+          exit;
+        }
+        $taxStmt->bindValue(':id', $tid, PDO::PARAM_INT);
+        $taxStmt->execute();
+        $trow = $taxStmt->fetch(PDO::FETCH_ASSOC);
+        if (!$trow) {
+          $_SESSION['error'] = "Selected tax (id: $tid) not found.";
+          header('location:../productdisplay.php');
+          exit;
+        }
+        $percentage = floatval($trow['percentage']);
+        // Basic sanity check on percentage
+        if ($percentage < 0 || $percentage > 100) {
+          $_SESSION['error'] = "Invalid tax percentage configured on server.";
+          header('location:../productdisplay.php');
+          exit;
+        }
+        $totalGST += $percentage;
       }
-      
-      
-      $stmt = $conn->prepare("INSERT INTO tbl_product (pid, name,unit_price,purchase_price,openning_stock,currentdate,group_id,details,user_id, gst,purchase_gst, selling_gst, exp,exp_date,hsn) VALUES (:pid,:name,:unit_price,:purchase_price,:openning_stock, :created_date,:group_id,:details,:user_id, :gst, :purchase_gst, :selling_gst,:exp,:exp_date,:hsn)");
-      $stmt->bindParam(':pid', htmlspecialchars($_POST['pid']));
-      $stmt->bindParam(':name', htmlspecialchars($_POST['name']));
-      $stmt->bindParam(':unit_price', htmlspecialchars($_POST['unit_price']));
+    }
 
-      $stmt->bindParam(':purchase_price', htmlspecialchars($_POST['purchase_price']));
-      $stmt->bindParam(':openning_stock', htmlspecialchars($openning_stock));
-      $stmt->bindParam(':created_date', htmlspecialchars(date('Y-m-d')));
-      $stmt->bindParam(':group_id', htmlspecialchars($_POST['group_id']));
-      $stmt->bindParam(':details', htmlspecialchars($_POST['details']));
+    $expl = implode(',', $gst_ids);
+
+    // Compute server-side purchase_gst and selling_gst values (do NOT trust client-supplied fields)
+    $purchase_gst_value = $purchase_price + ($purchase_price * $totalGST / 100.0);
+    // If product type is service (exp == 1), selling cost is unit_price (no GST addition in UI logic)
+    $selling_cost = '';
+    if (isset($_POST['exp']) && $_POST['exp'] == '1') {
+      $selling_cost = $unit_price;
+      $selling_gst_value = $unit_price;
+    } else {
+      $selling_gst_value = $unit_price + ($unit_price * $totalGST / 100.0);
+      $selling_cost = $selling_gst_value;
+    }
+
+    $stmt = $conn->prepare("INSERT INTO tbl_product (pid, name,unit_price,purchase_price,openning_stock,currentdate,group_id,details,user_id, gst,purchase_gst, selling_gst, exp,exp_date,hsn) VALUES (:pid,:name,:unit_price,:purchase_price,:openning_stock, :created_date,:group_id,:details,:user_id, :gst, :purchase_gst, :selling_gst,:exp,:exp_date,:hsn)");
+    $stmt->bindValue(':pid', htmlspecialchars($_POST['pid']), PDO::PARAM_STR);
+    $stmt->bindValue(':name', htmlspecialchars($_POST['name']), PDO::PARAM_STR);
+    $stmt->bindParam(':unit_price', $selling_cost);
+
+    $stmt->bindParam(':purchase_price', $purchase_price);
+    $stmt->bindValue(':openning_stock', htmlspecialchars($openning_stock), PDO::PARAM_INT);
+    $stmt->bindValue(':created_date', htmlspecialchars(date('Y-m-d')), PDO::PARAM_STR);
+    $stmt->bindValue(':group_id', htmlspecialchars($_POST['group_id']), PDO::PARAM_STR);
+    $stmt->bindValue(':details', htmlspecialchars($_POST['details']), PDO::PARAM_STR);
   
-       $stmt->bindParam(':user_id', $id);
-        $stmt->bindParam(':gst', $expl);
-        $stmt->bindParam(':purchase_gst', htmlspecialchars($_POST['purchase_gst']));
-        $stmt->bindParam(':selling_gst', htmlspecialchars($selling_cost));
-         $stmt->bindParam(':exp', htmlspecialchars($_POST['exp']));
-          $stmt->bindParam(':exp_date', htmlspecialchars($_POST['exp_date']));
+     $stmt->bindParam(':user_id', $id);
+    $stmt->bindValue(':gst', $expl, PDO::PARAM_STR);
+    $stmt->bindValue(':purchase_gst', number_format($purchase_gst_value, 2, '.', ''), PDO::PARAM_STR);
+    $stmt->bindValue(':selling_gst', number_format($selling_gst_value, 2, '.', ''), PDO::PARAM_STR);
+     $stmt->bindValue(':exp', htmlspecialchars($_POST['exp']), PDO::PARAM_STR);
+      $stmt->bindValue(':exp_date', htmlspecialchars($_POST['exp_date']), PDO::PARAM_STR);
           
-            $stmt->bindParam(':hsn', htmlspecialchars($_POST['hsn']));
+      $stmt->bindValue(':hsn', htmlspecialchars($_POST['hsn']), PDO::PARAM_STR);
     //   $stmt->bindParam(':image', htmlspecialchars($img));
 
       $stmt->execute();
@@ -109,15 +156,63 @@ if (isset($_POST['add_stock'])) {
     $exp = $_POST['exp'];
     $exp_date = !empty($_POST['exp_date']) ? $_POST['exp_date'] : null;
   
-    $gst_array = $_POST['gst'] ?? [];
-    $gst = implode(',', $gst_array); // convert array to comma-separated string
-    $purchase_gst = $_POST['purchase_gst'];
-    $selling_gst = $_POST['selling_gst'];
+  $gst_array = $_POST['gst'] ?? [];
+  $gst_ids = array_map('intval', $gst_array);
+  $gst = implode(',', $gst_ids); // convert array to comma-separated string
 
-    // Decide on final selling price based on type (Product or Service)
-    $final_selling_cost = ($exp == '1') ? $unit_price : $selling_gst;
+  // Validate numeric inputs
+  $purchase_price = filter_var($purchase_price, FILTER_VALIDATE_FLOAT);
+  $unit_price = filter_var($unit_price, FILTER_VALIDATE_FLOAT);
+  if ($purchase_price === false || $purchase_price < 0) {
+    $_SESSION['error'] = "Invalid purchase price.";
+    header('location:../update_product.php?id=' . urlencode($id));
+    exit;
+  }
+  if ($unit_price === false || $unit_price < 0) {
+    $_SESSION['error'] = "Invalid unit price.";
+    header('location:../update_product.php?id=' . urlencode($id));
+    exit;
+  }
 
-    try {
+  // Recompute GST percentages from server-side trusted source
+  $totalGST = 0.0;
+  if (!empty($gst_ids)) {
+    $taxStmt = $conn->prepare("SELECT id, percentage FROM tbl_tax WHERE delete_status='0' AND id = :id LIMIT 1");
+    foreach ($gst_ids as $tid) {
+      if ($tid <= 0) {
+        $_SESSION['error'] = "Invalid tax selection.";
+        header('location:../update_product.php?id=' . urlencode($id));
+        exit;
+      }
+      $taxStmt->bindValue(':id', $tid, PDO::PARAM_INT);
+      $taxStmt->execute();
+      $trow = $taxStmt->fetch(PDO::FETCH_ASSOC);
+      if (!$trow) {
+        $_SESSION['error'] = "Selected tax (id: $tid) not found.";
+        header('location:../update_product.php?id=' . urlencode($id));
+        exit;
+      }
+      $percentage = floatval($trow['percentage']);
+      if ($percentage < 0 || $percentage > 100) {
+        $_SESSION['error'] = "Invalid tax percentage configured on server.";
+        header('location:../update_product.php?id=' . urlencode($id));
+        exit;
+      }
+      $totalGST += $percentage;
+    }
+  }
+
+  // Compute server-side purchase_gst and selling_gst
+  $computed_purchase_gst = $purchase_price + ($purchase_price * $totalGST / 100.0);
+  if ($exp == '1') {
+    $computed_selling_gst = $unit_price;
+    $final_selling_cost = $unit_price;
+  } else {
+    $computed_selling_gst = $unit_price + ($unit_price * $totalGST / 100.0);
+    $final_selling_cost = $computed_selling_gst;
+  }
+
+  try {
         $stmt = $conn->prepare("UPDATE tbl_product SET 
             pid = :pid,
             name = :name,
@@ -144,9 +239,9 @@ if (isset($_POST['add_stock'])) {
         $stmt->bindParam(':exp', $exp);
         $stmt->bindParam(':exp_date', $exp_date);
        
-        $stmt->bindParam(':gst', $gst);
-        $stmt->bindParam(':purchase_gst', $purchase_gst);
-        $stmt->bindParam(':selling_gst', $final_selling_cost);
+  $stmt->bindValue(':gst', $gst, PDO::PARAM_STR);
+  $stmt->bindValue(':purchase_gst', number_format($computed_purchase_gst, 2, '.', ''), PDO::PARAM_STR);
+  $stmt->bindValue(':selling_gst', number_format($computed_selling_gst, 2, '.', ''), PDO::PARAM_STR);
         $stmt->bindParam(':id', $id);
 
         if ($stmt->execute()) {
@@ -168,8 +263,8 @@ if (isset($_POST['add_stock'])) {
 
     if (isset($_POST['del_id'])) {
       //$stmt = $conn->prepare("DELETE FROM customers WHERE id = :id");
-      $stmt = $conn->prepare("UPDATE tbl_product SET delete_status=1 WHERE id=:id");
-      $stmt->bindParam(':id', htmlspecialchars($_POST['del_id']));
+  $stmt = $conn->prepare("UPDATE tbl_product SET delete_status=1 WHERE id=:id");
+  $stmt->bindValue(':id', intval($_POST['del_id']), PDO::PARAM_INT);
       $stmt->execute();
 
        $_SESSION['success'] = "Product Deleted Succesfully";
