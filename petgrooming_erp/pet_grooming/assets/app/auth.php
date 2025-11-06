@@ -2,7 +2,69 @@
 
 
 <?php
+// Configure session cookie parameters to improve security: HttpOnly, Secure (when using HTTPS), and SameSite=Lax
+// These must be set before session_start().
+// Detect if the current request is over HTTPS (including common proxy headers).
+$isSecure = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+  || (!empty($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https')
+  || (isset($_SERVER['SERVER_PORT']) && $_SERVER['SERVER_PORT'] == 443);
+
+// Preserve existing cookie params where possible
+$existing = session_get_cookie_params();
+
+$cookieParams = [
+  'lifetime' => $existing['lifetime'],
+  'path' => $existing['path'],
+  'domain' => $existing['domain'],
+  'secure' => (bool)$isSecure,
+  'httponly' => true,
+];
+
+// Use array form for PHP >= 7.3 to set SameSite as well
+if (defined('PHP_VERSION_ID') && PHP_VERSION_ID >= 70300) {
+  $cookieParams['samesite'] = 'Lax';
+  session_set_cookie_params($cookieParams);
+} else {
+  // For older PHP versions, add SameSite via path (best-effort). Some environments may not honor it.
+  $path = $cookieParams['path'] ?? '/';
+  if (!empty($cookieParams['samesite'])) {
+    $path .= '; samesite=' . $cookieParams['samesite'];
+  } else {
+    $path .= '; samesite=Lax';
+  }
+  session_set_cookie_params(
+    $cookieParams['lifetime'],
+    $path,
+    $cookieParams['domain'],
+    $cookieParams['secure'],
+    $cookieParams['httponly']
+  );
+}
+
+// Start the session after configuring cookie parameters
 session_start();
+
+// Server-side session binding: if ip/user-agent were stored previously, validate them on each request.
+// If they differ, invalidate the session to reduce session portability risks.
+if (isset($_SESSION['ip_address']) && isset($_SESSION['user_agent'])) {
+  $current_ip = $_SERVER['REMOTE_ADDR'] ?? '';
+  $current_ua = $_SERVER['HTTP_USER_AGENT'] ?? '';
+  if ($_SESSION['ip_address'] !== $current_ip || $_SESSION['user_agent'] !== $current_ua) {
+    // Clear session data and cookie, then destroy session
+    $_SESSION = [];
+    if (ini_get('session.use_cookies')) {
+      $params = session_get_cookie_params();
+      setcookie(session_name(), '', time() - 42000,
+        $params['path'], $params['domain'],
+        $params['secure'], $params['httponly']
+      );
+    }
+    session_destroy();
+    // Redirect to login page (or stop processing). Using relative path consistent with app.
+    header('Location: ../../index.php');
+    exit;
+  }
+}
 //configuration file
 require_once('../constants/config.php');
 
@@ -95,6 +157,11 @@ function admin_login()
   $_SESSION['role'] = "admin";
   $_SESSION['email'] = $GLOBALS['email_address'];
   $_SESSION['avator'] = $GLOBALS['avator'];
+  // Bind this session to the current client (IP and User-Agent) to reduce session portability.
+  $_SESSION['ip_address'] = $_SERVER['REMOTE_ADDR'] ?? '';
+  $_SESSION['user_agent'] = $_SERVER['HTTP_USER_AGENT'] ?? '';
+  // Regenerate session ID after privilege change/login to prevent session fixation
+  session_regenerate_id(true);
   /* echo "<script>alert('  Login Successfully');</script>";
  echo "<script>document.location='../../admin'
 </script>";*/ ?>
@@ -119,8 +186,13 @@ function student_login()
 
   $_SESSION['logged'] = "1";
   //$_SESSION['role'] = "users";
-  $_SESSION['role'] = $role;
+  // For student/user login set role and store identifying info
+  $_SESSION['role'] = 'users';
   $_SESSION['email'] = $_POST['email_address'];
-  $_SESSION['avator'] = $avator;
+  $_SESSION['avator'] = $GLOBALS['avator'] ?? '';
+  // Bind and harden session
+  $_SESSION['ip_address'] = $_SERVER['REMOTE_ADDR'] ?? '';
+  $_SESSION['user_agent'] = $_SERVER['HTTP_USER_AGENT'] ?? '';
+  session_regenerate_id(true);
 }
 ?>
