@@ -22,8 +22,8 @@ $result = $stmt->fetch(PDO::FETCH_ASSOC);
 if (isset($_POST['update'])) {
     $target_dir = "../assets/uploadImage/Profile/";
     $website_logo = $_POST['old_website_image'];
-    $allowed_types = ['image/jpeg', 'image/png', 'image/gif'];
-    $allowed_extensions = ['jpg', 'jpeg', 'png', 'gif'];
+    $allowed_types = ['image/jpeg', 'image/png'];
+    $allowed_extensions = ['jpg', 'jpeg', 'png'];
     $deny_extensions = ['php', 'phtml', 'exe', 'js', 'html', 'htm', 'sh', 'bat', 'pl', 'py', 'asp', 'aspx', 'cgi'];
     $max_file_size = 2 * 1024 * 1024; // 2MB
 
@@ -85,12 +85,12 @@ if (isset($_POST['update'])) {
         }
         // Allow-list filtering
         if (!in_array($file_ext, $allowed_extensions)) {
-            echo "<script>alert('Only JPG, PNG, and GIF files are allowed.');window.history.back();</script>";
+            echo "<script>alert('Only JPG and PNG files are allowed.');window.history.back();</script>";
             exit;
         }
         // MIME type check
         if (!in_array($file_type, $allowed_types)) {
-            echo "<script>alert('Invalid file type. Only JPG, PNG, and GIF are allowed.');window.history.back();</script>";
+            echo "<script>alert('Invalid file type. Only JPG and PNG files are allowed.');window.history.back();</script>";
             exit;
         }
         // Magic number validation
@@ -105,10 +105,6 @@ if (isset($_POST['update'])) {
         // PNG: 89 50 4E 47 0D 0A 1A 0A
         elseif ($file_ext === 'png') {
             if ($bytes === "\x89PNG\x0D\x0A\x1A\x0A") $magic_valid = true;
-        }
-        // GIF: GIF87a or GIF89a
-        elseif ($file_ext === 'gif') {
-            if (substr($bytes, 0, 6) === 'GIF87a' || substr($bytes, 0, 6) === 'GIF89a') $magic_valid = true;
         }
         if (!$magic_valid) {
             echo "<script>alert('File content does not match its extension.');window.history.back();</script>";
@@ -126,7 +122,7 @@ if (isset($_POST['update'])) {
                 // Sanitize filename to prevent path traversal
                 $old_image_filename = basename($_POST['old_website_image']);
                 // Only allow valid image extensions
-                $valid_exts = ['jpg', 'jpeg', 'png', 'gif'];
+                $valid_exts = ['jpg', 'jpeg', 'png'];
                 $old_ext = strtolower(pathinfo($old_image_filename, PATHINFO_EXTENSION));
                 if (in_array($old_ext, $valid_exts)) {
                     $old_image_path = $target_dir . $old_image_filename;
